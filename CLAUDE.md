@@ -19,7 +19,10 @@ Local path (not in repo, do not commit):
 - `test.csv` — same minus label
 - `sample_submission.csv`
 
-Reference by this absolute path in code/configs, never copy into repo.
+No path hardcoded in `src/*.py` — every script takes `--config`, and all
+filesystem paths (data dir, output root, experiments dir) live under
+`paths:` in the yaml config. Portability to a different machine/dataset
+location is a one-line config edit, not a code change.
 
 ## Approach
 

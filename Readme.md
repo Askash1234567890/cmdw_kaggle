@@ -28,12 +28,13 @@ All commands from repo root, env activated.
 
 ### EDA
 
-Writes `experiments/eda_report.md` (versioned) + plots to `outputs/eda/`
-(gitignored). Console log goes to stdout by
-default; tee to a file to keep a copy:
+Writes `<paths.experiments_dir>/eda_report.md` (versioned) + plots to
+`<paths.output_root>/eda/` (gitignored) — paths come from the config's
+`paths:` block, default `--config configs/base.yaml`. Console log goes to
+stdout by default; tee to a file to keep a copy:
 
 ```bash
-python -m src.eda 2>&1 | tee outputs/eda/eda_run.log
+python -m src.eda --config configs/base.yaml 2>&1 | tee outputs/eda/eda_run.log
 ```
 
 ### Smoke test (Mac, mps) — verify pipeline before real training

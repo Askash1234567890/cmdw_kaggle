@@ -30,8 +30,6 @@ from src.utils import get_device, load_config, set_seed, setup_logging
 
 logger = logging.getLogger(__name__)
 
-RUNS_LOG = Path("experiments/runs.md")
-
 
 def compute_metrics(eval_pred: EvalPrediction) -> dict[str, float]:
     preds = np.argmax(eval_pred.predictions, axis=-1)
@@ -51,6 +49,7 @@ def worst_languages_note(per_lang: dict[str, float], n: int = 3) -> str:
 
 
 def append_run_row(
+    runs_log: Path,
     run_id: str,
     model_name: str,
     lr: float,
@@ -64,9 +63,9 @@ def append_run_row(
         f"| {date} | {run_id} | {model_name} | {lr} | {epochs} | "
         f"{val_acc:.4f} | {per_lang_note} | {notes} |\n"
     )
-    with open(RUNS_LOG, "a", encoding="utf-8") as f:
+    with open(runs_log, "a", encoding="utf-8") as f:
         f.write(row)
-    logger.info("appended run row to %s", RUNS_LOG)
+    logger.info("appended run row to %s", runs_log)
 
 
 def build_run_id(run_name: str) -> str:
@@ -81,8 +80,12 @@ def main(config_path: str) -> None:
     device = get_device(cfg)
     logger.info("device=%s", device)
 
+    paths = cfg["paths"]
+    data_dir = Path(paths["data_dir"])
+    output_root = Path(paths["output_root"])
+    runs_log = Path(paths["experiments_dir"]) / "runs.md"
+
     run_id = build_run_id(cfg["run_name"])
-    output_root = Path(cfg["output_root"])
     checkpoint_dir = output_root / "checkpoints" / run_id
     logger.info("run_id=%s", run_id)
 
@@ -90,7 +93,7 @@ def main(config_path: str) -> None:
     clearml_task = init_clearml(cfg, run_id)
 
     logger.info("stage: load + split train.csv")
-    df = load_train_df(subset=cfg["data"]["subset"])
+    df = load_train_df(data_dir, subset=cfg["data"]["subset"])
     train_df, val_df = stratified_split(df, val_size=cfg["data"]["val_size"], seed=cfg["seed"])
     logger.info("train=%d val=%d", len(train_df), len(val_df))
 
@@ -169,6 +172,7 @@ def main(config_path: str) -> None:
         close_clearml(clearml_task)
 
     append_run_row(
+        runs_log=runs_log,
         run_id=run_id,
         model_name=cfg["model_name"],
         lr=t["lr"],

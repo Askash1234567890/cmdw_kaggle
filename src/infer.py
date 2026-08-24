@@ -17,7 +17,7 @@ import torch
 from torch.utils.data import DataLoader
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
-from src.data import DATA_DIR, NLIDataset, load_test_df
+from src.data import NLIDataset, load_test_df
 from src.utils import get_device, load_config, setup_logging
 
 logger = logging.getLogger(__name__)
@@ -33,7 +33,7 @@ def predict(checkpoint: str, cfg: dict[str, Any]) -> pd.DataFrame:
     model = AutoModelForSequenceClassification.from_pretrained(checkpoint).to(device)
     model.eval()
 
-    test_df = load_test_df()
+    test_df = load_test_df(Path(cfg["paths"]["data_dir"]))
     dataset = NLIDataset(test_df, tokenizer, cfg["max_length"], has_labels=False)
     loader = DataLoader(dataset, batch_size=cfg["training"]["eval_batch_size"], shuffle=False)
 
@@ -48,7 +48,7 @@ def predict(checkpoint: str, cfg: dict[str, Any]) -> pd.DataFrame:
     return pd.DataFrame({"id": test_df["id"], "prediction": all_preds})
 
 
-def validate_submission(sub: pd.DataFrame) -> None:
+def validate_submission(sub: pd.DataFrame, data_dir: Path) -> None:
     errors = []
 
     if len(sub) != EXPECTED_ROWS:
@@ -68,7 +68,7 @@ def validate_submission(sub: pd.DataFrame) -> None:
     if bad_labels:
         errors.append(f"prediction contains labels outside {VALID_LABELS}: {bad_labels}")
 
-    sample = pd.read_csv(DATA_DIR / "sample_submission.csv")
+    sample = pd.read_csv(Path(data_dir) / "sample_submission.csv")
     if set(sub["id"]) != set(sample["id"]):
         errors.append("id set does not match sample_submission.csv id set")
 
@@ -94,7 +94,7 @@ def main(checkpoint: str, config_path: str, out_path: str) -> None:
 
     sub = predict(checkpoint, cfg)
     sub["prediction"] = sub["prediction"].astype(int)
-    validate_submission(sub)
+    validate_submission(sub, Path(cfg["paths"]["data_dir"]))
     logger.info("submission passed checklist (%d rows)", len(sub))
 
     out = tag_out_path(out_path, run_id)

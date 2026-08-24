@@ -43,7 +43,7 @@ accuracy — watch these first in `experiments/runs.md`.
 ## Train vs test language mismatch
 No language present in one split but not the other.
 
-## Token length (method: xlm-roberta-large tokenizer)
+## Token length (method: xlm-roberta-base tokenizer)
 - premise: mean=27.4, p95=56, max=226
 - hypothesis: mean=13.6, p95=24, max=58
 - combined p95 (premise+hypothesis, informs `max_length` in config): 74

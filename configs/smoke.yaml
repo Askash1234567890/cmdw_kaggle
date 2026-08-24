@@ -34,4 +34,7 @@ clearml:
   project_name: contradictory-my-dear-watson
   task_name: null
 
-output_root: outputs
+paths:
+  data_dir: /Users/askash/kaggle_competitions/datasets/contradictory_my_dear_watson
+  output_root: outputs
+  experiments_dir: experiments

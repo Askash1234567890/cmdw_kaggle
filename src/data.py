@@ -11,18 +11,16 @@ from sklearn.model_selection import train_test_split
 from torch.utils.data import Dataset
 from transformers import PreTrainedTokenizerBase
 
-DATA_DIR = Path("/Users/askash/kaggle_competitions/datasets/contradictory_my_dear_watson")
 
-
-def load_train_df(subset: int | None = None) -> pd.DataFrame:
-    df = pd.read_csv(DATA_DIR / "train.csv")
+def load_train_df(data_dir: Path, subset: int | None = None) -> pd.DataFrame:
+    df = pd.read_csv(Path(data_dir) / "train.csv")
     if subset is not None:
         df = df.sample(n=subset, random_state=0).reset_index(drop=True)
     return df
 
 
-def load_test_df() -> pd.DataFrame:
-    return pd.read_csv(DATA_DIR / "test.csv")
+def load_test_df(data_dir: Path) -> pd.DataFrame:
+    return pd.read_csv(Path(data_dir) / "test.csv")
 
 
 def stratified_split(

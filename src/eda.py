@@ -1,12 +1,15 @@
-"""Standalone EDA over train/test csv. Run: python -m src.eda
+"""Standalone EDA over train/test csv. Run: python -m src.eda --config configs/base.yaml
 
-Writes plots + a markdown summary to outputs/eda/.
+Writes plots + a markdown summary under the paths given in the config
+(`paths.output_root`/eda, `paths.experiments_dir`).
 """
 
 from __future__ import annotations
 
+import argparse
 import logging
 from pathlib import Path
+from typing import Any
 
 import matplotlib
 
@@ -14,28 +17,24 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from src.data import DATA_DIR, load_test_df, load_train_df
-from src.utils import LABEL_NAMES, setup_logging
+from src.data import load_test_df, load_train_df
+from src.utils import LABEL_NAMES, load_config, setup_logging
 
 logger = logging.getLogger(__name__)
 
-OUT_DIR = Path("outputs/eda")
-REPORT_DIR = Path("experiments")
-MODEL_NAME = "xlm-roberta-large"
 
-
-def _token_lengths(df: pd.DataFrame) -> pd.DataFrame:
-    """Token count per premise/hypothesis via the XLM-R tokenizer.
+def _token_lengths(df: pd.DataFrame, model_name: str) -> pd.DataFrame:
+    """Token count per premise/hypothesis via the configured model's tokenizer.
     Falls back to whitespace-split count if the tokenizer can't be
     downloaded (offline dev machine) — flagged in the report either way.
     """
     try:
         from transformers import AutoTokenizer
 
-        tok = AutoTokenizer.from_pretrained(MODEL_NAME)
+        tok = AutoTokenizer.from_pretrained(model_name)
         premise_len = [len(tok.tokenize(t)) for t in df["premise"]]
         hyp_len = [len(tok.tokenize(t)) for t in df["hypothesis"]]
-        method = f"{MODEL_NAME} tokenizer"
+        method = f"{model_name} tokenizer"
     except Exception as e:  # offline / no network — degrade gracefully
         logger.warning("tokenizer load failed (%s), falling back to whitespace split", e)
         premise_len = [len(t.split()) for t in df["premise"]]
@@ -95,24 +94,27 @@ def _label_spot_check(df: pd.DataFrame, n_per_cell: int = 1) -> pd.DataFrame:
     return pd.concat(rows) if rows else df.iloc[0:0]
 
 
-def run_eda() -> None:
+def run_eda(cfg: dict[str, Any]) -> None:
     setup_logging()
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
-    REPORT_DIR.mkdir(parents=True, exist_ok=True)
+    data_dir = Path(cfg["paths"]["data_dir"])
+    out_dir = Path(cfg["paths"]["output_root"]) / "eda"
+    report_dir = Path(cfg["paths"]["experiments_dir"])
+    out_dir.mkdir(parents=True, exist_ok=True)
+    report_dir.mkdir(parents=True, exist_ok=True)
 
-    train_df = load_train_df()
-    test_df = load_test_df()
+    train_df = load_train_df(data_dir)
+    test_df = load_test_df(data_dir)
     logger.info("train rows=%d test rows=%d", len(train_df), len(test_df))
 
-    train_df_len = _token_lengths(train_df)
+    train_df_len = _token_lengths(train_df, cfg["model_name"])
 
-    _plot_class_balance(train_df, OUT_DIR / "class_balance.png")
-    _plot_length_dist(train_df_len, OUT_DIR / "length_dist.png")
-    _plot_lang_dist(train_df, test_df, OUT_DIR / "lang_dist_train_vs_test.png")
+    _plot_class_balance(train_df, out_dir / "class_balance.png")
+    _plot_length_dist(train_df_len, out_dir / "length_dist.png")
+    _plot_lang_dist(train_df, test_df, out_dir / "lang_dist_train_vs_test.png")
 
     dups = _find_duplicates(train_df)
     spot_check = _label_spot_check(train_df)
-    spot_check.to_csv(OUT_DIR / "label_spot_check.csv", index=False)
+    spot_check.to_csv(out_dir / "label_spot_check.csv", index=False)
 
     train_langs = set(train_df["lang_abv"])
     test_langs = set(test_df["lang_abv"])
@@ -123,7 +125,7 @@ def run_eda() -> None:
 
     report = f"""# EDA report — Contradictory, My Dear Watson
 
-Data: `{DATA_DIR}`
+Data: `{data_dir}`
 
 ## Shape
 - train rows: {len(train_df)}
@@ -158,19 +160,22 @@ duplicate pair with two different label would be a labeling conflict worth
 checking manually).
 
 ## Label spot-check
-One sample row per (language, label) written to `outputs/eda/label_spot_check.csv`
+One sample row per (language, label) written to `{out_dir / "label_spot_check.csv"}`
 for manual read-through — no automated sanity check replaces eyeballing a few
 real example per language.
 
 ## Plots
-- `outputs/eda/class_balance.png`
-- `outputs/eda/length_dist.png`
-- `outputs/eda/lang_dist_train_vs_test.png`
+- `{out_dir / "class_balance.png"}`
+- `{out_dir / "length_dist.png"}`
+- `{out_dir / "lang_dist_train_vs_test.png"}`
 """
-    report_path = REPORT_DIR / "eda_report.md"
+    report_path = report_dir / "eda_report.md"
     report_path.write_text(report, encoding="utf-8")
     logger.info("EDA report written to %s", report_path)
 
 
 if __name__ == "__main__":
-    run_eda()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config", default="configs/base.yaml")
+    args = parser.parse_args()
+    run_eda(load_config(args.config))
