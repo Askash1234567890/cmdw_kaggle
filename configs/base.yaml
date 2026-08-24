@@ -1,0 +1,37 @@
+# Real training run — RTX 5090 GPU server.
+run_name: base
+
+model_name: xlm-roberta-large
+num_labels: 3
+max_length: 128  # combined premise+hypothesis p95 token length is 74 (see outputs/eda/eda_report.md)
+
+seed: 42
+device: cuda
+
+data:
+  subset: null  # null = full train.csv
+  val_size: 0.1
+
+training:
+  epochs: 3
+  batch_size: 32
+  eval_batch_size: 64
+  lr: 2.0e-5
+  weight_decay: 0.01
+  warmup_ratio: 0.06
+  fp16: false
+  bf16: true  # 5090 (Blackwell) supports bf16 natively
+  logging_steps: 50
+  eval_strategy: epoch
+  save_strategy: epoch
+
+profiling:
+  enabled: false
+  profile_steps: 10
+
+clearml:
+  enabled: false
+  project_name: contradictory-my-dear-watson
+  task_name: null  # null = falls back to run_id
+
+output_root: outputs

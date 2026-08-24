@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "contradictory-my-dear-watson"
+version = "0.1.0"
+description = "NLI (entailment/neutral/contradiction) fine-tuning pipeline for the Kaggle Contradictory, My Dear Watson competition"
+requires-python = ">=3.10"
+dependencies = [
+    "torch==2.6.0",
+    "transformers==4.47.1",
+    "accelerate==1.2.1",
+    "pandas==2.2.3",
+    "numpy==1.24.4",
+    "scikit-learn==1.5.2",
+    "pyyaml==6.0.2",
+    "matplotlib==3.9.2",
+    "tensorboard==2.18.0",
+    "tabulate==0.9.0",
+    "setuptools==75.6.0",  # tensorboard CLI needs pkg_resources at runtime, not just at build time
+    "torch-tb-profiler==0.4.3",  # PYTORCH_PROFILER tab in tensorboard, reads torch.profiler trace.json
+]
+
+[project.optional-dependencies]
+clearml = ["clearml==1.16.4"]
+
+[tool.setuptools.packages.find]
+include = ["src*"]

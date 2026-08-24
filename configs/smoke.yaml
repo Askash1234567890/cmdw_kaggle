@@ -1,0 +1,37 @@
+# Smoke test — Mac M5, tiny subset, just verifies pipeline mechanics.
+run_name: smoke
+
+model_name: xlm-roberta-base  # smaller than base.yaml's large — fits Mac RAM for pipeline smoke-check
+num_labels: 3
+max_length: 64
+
+seed: 42
+device: mps
+
+data:
+  subset: 100
+  val_size: 0.2
+
+training:
+  epochs: 1
+  batch_size: 4
+  eval_batch_size: 8
+  lr: 2.0e-5
+  weight_decay: 0.01
+  warmup_ratio: 0.06
+  fp16: false
+  bf16: false  # mps bf16 support is unreliable — off for the smoke run
+  logging_steps: 5
+  eval_strategy: epoch
+  save_strategy: epoch
+
+profiling:
+  enabled: true
+  profile_steps: 5
+
+clearml:
+  enabled: false
+  project_name: contradictory-my-dear-watson
+  task_name: null
+
+output_root: outputs
