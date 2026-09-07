@@ -6,7 +6,6 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
-import torch
 from sklearn.model_selection import train_test_split
 from torch.utils.data import Dataset
 from transformers import PreTrainedTokenizerBase
@@ -60,26 +59,27 @@ class NLIDataset(Dataset):
         max_length: int,
         has_labels: bool = True,
     ) -> None:
-        self.premise = df["premise"].tolist()
+        self.premise    = df["premise"].tolist()
         self.hypothesis = df["hypothesis"].tolist()
-        self.lang_abv = df["lang_abv"].tolist()
-        self.labels = df["label"].tolist() if has_labels else None
-        self.tokenizer = tokenizer
+        self.lang_abv   = df["lang_abv"].tolist()
+        self.labels     = df["label"].tolist() if has_labels else None
+        self.tokenizer  = tokenizer
         self.max_length = max_length
 
     def __len__(self) -> int:
         return len(self.premise)
 
     def __getitem__(self, idx: int) -> dict[str, Any]:
+        """Switched padding -> False from 'max_length'"""
         encoding = self.tokenizer(
             self.premise[idx],
             self.hypothesis[idx],
             truncation=True,
             max_length=self.max_length,
-            padding="max_length",
-            return_tensors="pt",
+            padding=False,
+            # return_tensors="pt",
         )
-        item = {k: v.squeeze(0) for k, v in encoding.items()}
+        item: dict[str, Any] = dict(encoding)
         if self.labels is not None:
-            item["labels"] = torch.tensor(self.labels[idx], dtype=torch.long)
+            item["labels"] = self.labels[idx]
         return item

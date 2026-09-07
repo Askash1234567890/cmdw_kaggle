@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "NLI (entailment/neutral/contradiction) fine-tuning pipeline for the Kaggle Contradictory, My Dear Watson competition"
 requires-python = ">=3.10"
 dependencies = [
-    "torch==2.6.0",
+    "torch==2.9.1",  # cu128 build required for RTX 5090 (sm_120, Blackwell) — install via --extra-index-url https://download.pytorch.org/whl/cu128
     "transformers==4.47.1",
     "accelerate==1.2.1",
     "pandas==2.2.3",

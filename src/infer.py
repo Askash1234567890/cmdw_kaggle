@@ -15,7 +15,7 @@ import numpy as np
 import pandas as pd
 import torch
 from torch.utils.data import DataLoader
-from transformers import AutoModelForSequenceClassification, AutoTokenizer
+from transformers import AutoModelForSequenceClassification, AutoTokenizer, DataCollatorWithPadding
 
 from src.data import NLIDataset, load_test_df
 from src.utils import get_device, load_config, setup_logging
@@ -35,7 +35,11 @@ def predict(checkpoint: str, cfg: dict[str, Any]) -> pd.DataFrame:
 
     test_df = load_test_df(Path(cfg["paths"]["data_dir"]))
     dataset = NLIDataset(test_df, tokenizer, cfg["max_length"], has_labels=False)
-    loader = DataLoader(dataset, batch_size=cfg["training"]["eval_batch_size"], shuffle=False)
+    loader = DataLoader(
+        dataset, 
+        batch_size = cfg["training"]["eval_batch_size"], 
+        collate_fn = DataCollatorWithPadding(tokenizer),
+        shuffle    = False)
 
     all_preds: list[int] = []
     with torch.no_grad():

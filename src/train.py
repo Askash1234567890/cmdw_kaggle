@@ -8,6 +8,7 @@ from __future__ import annotations
 import argparse
 import logging
 import shutil
+import os
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -21,6 +22,7 @@ from transformers import (
     EvalPrediction,
     Trainer,
     TrainingArguments,
+    DataCollatorWithPadding
 )
 
 from src.clearml_logger import close_clearml, init_clearml
@@ -29,6 +31,7 @@ from src.profiling import ProfilerCallback
 from src.utils import get_device, load_config, set_seed, setup_logging
 
 logger = logging.getLogger(__name__)
+os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 
 
 def compute_metrics(eval_pred: EvalPrediction) -> dict[str, float]:
@@ -114,24 +117,27 @@ def main(config_path: str) -> None:
 
     t = cfg["training"]
     args = TrainingArguments(
-        output_dir=str(checkpoint_dir / "hf_run"),
-        num_train_epochs=t["epochs"],
-        per_device_train_batch_size=t["batch_size"],
-        per_device_eval_batch_size=t["eval_batch_size"],
-        learning_rate=t["lr"],
-        weight_decay=t["weight_decay"],
-        warmup_ratio=t["warmup_ratio"],
-        fp16=t["fp16"],
-        bf16=t["bf16"],
-        logging_steps=t["logging_steps"],
-        eval_strategy=t["eval_strategy"],
-        save_strategy=t["save_strategy"],
-        load_best_model_at_end=True,
-        metric_for_best_model="accuracy",
-        save_total_limit=2,
-        seed=cfg["seed"],
-        report_to=["tensorboard"],
-        no_cuda=(cfg["device"] == "cpu"),
+        output_dir                  = str(checkpoint_dir / "hf_run"),
+        num_train_epochs            = t["epochs"],
+        per_device_train_batch_size = t["batch_size"],
+        per_device_eval_batch_size  = t["eval_batch_size"],
+        learning_rate               = t["lr"],
+        weight_decay                = t["weight_decay"],
+        warmup_ratio                = t["warmup_ratio"],
+        fp16                        = t["fp16"],
+        bf16                        = t["bf16"],
+        dataloader_num_workers      = t["num_workers"],
+        logging_steps               = t["logging_steps"],
+        eval_strategy               = t["eval_strategy"],
+        save_strategy               = t["save_strategy"],
+        group_by_length             = True,
+        load_best_model_at_end      = True,
+        logging_nan_inf_filter      = False,
+        metric_for_best_model       = "accuracy",
+        save_total_limit            = 2,
+        seed                        = cfg["seed"],
+        report_to                   = ["tensorboard"],
+        no_cuda                     = (cfg["device"] == "cpu"),
     )
 
     callbacks = []
@@ -140,12 +146,13 @@ def main(config_path: str) -> None:
         callbacks.append(ProfilerCallback(profiling_dir, cfg["profiling"]["profile_steps"]))
 
     trainer = Trainer(
-        model=model,
-        args=args,
-        train_dataset=train_dataset,
-        eval_dataset=val_dataset,
-        compute_metrics=compute_metrics,
-        callbacks=callbacks,
+        model           = model,
+        args            = args,
+        train_dataset   = train_dataset,
+        eval_dataset    = val_dataset,
+        compute_metrics = compute_metrics,
+        callbacks       = callbacks,
+        data_collator   = DataCollatorWithPadding(tokenizer)
     )
     logger.info("stage: trainer built, starting train()")
 
@@ -172,14 +179,14 @@ def main(config_path: str) -> None:
         close_clearml(clearml_task)
 
     append_run_row(
-        runs_log=runs_log,
-        run_id=run_id,
-        model_name=cfg["model_name"],
-        lr=t["lr"],
-        epochs=t["epochs"],
-        val_acc=val_acc,
-        per_lang_note=per_lang_note,
-        notes=cfg.get("notes", ""),
+        runs_log      = runs_log,
+        run_id        = run_id,
+        model_name    = cfg["model_name"],
+        lr            = t["lr"],
+        epochs        = t["epochs"],
+        val_acc       = val_acc,
+        per_lang_note = per_lang_note,
+        notes         = cfg.get("notes", ""),
     )
 
 

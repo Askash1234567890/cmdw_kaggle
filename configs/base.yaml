@@ -1,5 +1,5 @@
 # Real training run — RTX 5090 GPU server.
-run_name: base
+run_name: large
 
 model_name: xlm-roberta-large
 num_labels: 3
@@ -13,14 +13,15 @@ data:
   val_size: 0.1
 
 training:
-  epochs: 3
-  batch_size: 32
-  eval_batch_size: 64
-  lr: 2.0e-5
+  epochs: 10
+  batch_size: 160
+  eval_batch_size: 128
+  lr: 1.0e-5
   weight_decay: 0.01
-  warmup_ratio: 0.06
+  warmup_ratio: 0.1
   fp16: false
   bf16: true  # 5090 (Blackwell) supports bf16 natively
+  num_workers: 8
   logging_steps: 50
   eval_strategy: epoch
   save_strategy: epoch
@@ -35,6 +36,6 @@ clearml:
   task_name: null  # null = falls back to run_id
 
 paths:
-  data_dir: /Users/askash/kaggle_competitions/datasets/contradictory_my_dear_watson
+  data_dir: /home/boorble/askash/datasets/kaggle/cmdw_data
   output_root: outputs
   experiments_dir: experiments

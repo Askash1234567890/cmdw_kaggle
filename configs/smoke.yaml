@@ -6,7 +6,7 @@ num_labels: 3
 max_length: 64
 
 seed: 42
-device: mps
+device: cuda
 
 data:
   subset: 100
@@ -21,6 +21,7 @@ training:
   warmup_ratio: 0.06
   fp16: false
   bf16: false  # mps bf16 support is unreliable — off for the smoke run
+  num_workers: 8
   logging_steps: 5
   eval_strategy: epoch
   save_strategy: epoch
@@ -35,6 +36,6 @@ clearml:
   task_name: null
 
 paths:
-  data_dir: /Users/askash/kaggle_competitions/datasets/contradictory_my_dear_watson
+  data_dir: /home/boorble/askash/datasets/kaggle/cmdw_data
   output_root: outputs
   experiments_dir: experiments
