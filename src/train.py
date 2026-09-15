@@ -9,6 +9,7 @@ import argparse
 import logging
 import shutil
 import os
+import gc
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -110,6 +111,14 @@ def main(config_path: str) -> None:
     tokenizer = AutoTokenizer.from_pretrained(cfg["model_name"])
     train_dataset = NLIDataset(train_df, tokenizer, cfg["max_length"])
     val_dataset = NLIDataset(val_df, tokenizer, cfg["max_length"])
+
+    del df
+    del test_df
+    del extra_df
+    del exclude_pairs
+    del train_df
+    del val_df
+    gc.collect()
 
     logger.info(
         "stage: load model %s (~2.2GB download on first run, cached after in ~/.cache/huggingface)",

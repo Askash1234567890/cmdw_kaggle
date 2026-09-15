@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
+import numpy as np
 from sklearn.model_selection import train_test_split
 from torch.utils.data import Dataset
 from transformers import PreTrainedTokenizerBase
@@ -164,10 +165,10 @@ class NLIDataset(Dataset):
         max_length: int,
         has_labels: bool = True,
     ) -> None:
-        self.premise    = df["premise"].tolist()
-        self.hypothesis = df["hypothesis"].tolist()
-        self.lang_abv   = df["lang_abv"].tolist()
-        self.labels     = df["label"].tolist() if has_labels else None
+        self.premise    = df["premise"].to_numpy()
+        self.hypothesis = df["hypothesis"].to_numpy()
+        self.lang_abv   = df["lang_abv"].to_numpy()
+        self.labels     = df["label"].to_numpy() if has_labels else None
         self.tokenizer  = tokenizer
         self.max_length = max_length
 
