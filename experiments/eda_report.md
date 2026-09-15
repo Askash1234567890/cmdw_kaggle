@@ -1,63 +1,74 @@
 # EDA report — Contradictory, My Dear Watson
 
-Data: `/Users/askash/kaggle_competitions/datasets/contradictory_my_dear_watson`
+Data: `/home/boorble/askash/datasets/kaggle/cmdw_data/base_cmdw` (base) + extra_data config sources below.
 
 ## Shape
-- train rows: 12120
+- base train rows: 12120
 - test rows: 5195
+- extra rows (augmentation corpora): 6477880
+- combined train-pool rows: 6490000
 
-## Class balance (overall)
-| label         |   count |
-|:--------------|--------:|
-| entailment    |    4176 |
-| contradiction |    4064 |
-| neutral       |    3880 |
+## Source breakdown (combined)
+| source         |            count |
+|:---------------|-----------------:|
+| xnli_hf        |      5.92788e+06 |
+| multinli26lang | 550000           |
+| base_cmdw      |  12120           |
 
-Roughly balanced (largest/smallest ratio 1.08) —
-no resampling/class-weighting needed as a first pass.
+## Class balance (combined)
+| label         |       count |
+|:--------------|------------:|
+| neutral       | 2.20226e+06 |
+| entailment    | 2.17464e+06 |
+| contradiction | 2.1131e+06  |
 
-## Language distribution (train)
+Largest/smallest ratio 1.04 —
+roughly balanced, no resampling/class-weighting needed.
+
+## Language distribution (combined train-pool)
 | lang_abv   |   count |
 |:-----------|--------:|
-| en         |    6870 |
-| zh         |     411 |
-| ar         |     401 |
-| fr         |     390 |
-| sw         |     385 |
-| ur         |     381 |
-| vi         |     379 |
-| ru         |     376 |
-| hi         |     374 |
-| el         |     372 |
-| th         |     371 |
-| es         |     366 |
-| tr         |     351 |
-| de         |     351 |
-| bg         |     342 |
-
-English dominates (6870 rows, 56.7% of train),
-the other 14 languages sit around 340-410 rows each. Low-resource languages
-(bg, tr, de at the low end) are the ones most likely to show weak per-language
-accuracy — watch these first in `experiments/runs.md`.
+| zh         |  445603 |
+| ar         |  445593 |
+| fr         |  445582 |
+| sw         |  445577 |
+| ur         |  445573 |
+| vi         |  445571 |
+| ru         |  445568 |
+| hi         |  445566 |
+| es         |  445558 |
+| de         |  445543 |
+| tr         |  445543 |
+| en         |  402062 |
+| el         |  395564 |
+| th         |  395563 |
+| bg         |  395534 |
 
 ## Train vs test language mismatch
 No language present in one split but not the other.
 
-## Token length (method: xlm-roberta-base tokenizer)
-- premise: mean=27.4, p95=56, max=226
-- hypothesis: mean=13.6, p95=24, max=58
-- combined p95 (premise+hypothesis, informs `max_length` in config): 74
+## Token length (method: xlm-roberta-large tokenizer, sampled up to 50,000 rows from combined pool)
+- premise: mean=32.2, p95=73, max=510
+- hypothesis: mean=16.5, p95=31, max=101
+- combined p95 (premise+hypothesis, informs `max_length` in config): 97
 
-## Duplicates
+## Duplicates (base train only)
 0 row involved in an exact (premise, hypothesis) duplicate
 (0 distinct label among them — a
 duplicate pair with two different label would be a labeling conflict worth
 checking manually).
 
+## Extra-data leakage check
+- extra rows exactly matching a (premise, hypothesis) pair in **test.csv**: 746
+- extra rows exactly matching a (premise, hypothesis) pair in **base train.csv**: 1744
+
+WARNING: extra_data overlaps test.csv pairs — drop these rows before training or val/test accuracy will be inflated by leakage.
+Note: 1744 extra rows duplicate base train rows — harmless but adds no signal, consider deduping.
+
 ## Label spot-check
-One sample row per (language, label) written to `outputs/eda/label_spot_check.csv`
-for manual read-through — no automated sanity check replaces eyeballing a few
-real example per language.
+One sample row per (language, label) from the combined pool, written to
+`outputs/eda/label_spot_check.csv` for manual read-through — no automated
+sanity check replaces eyeballing a few real example per language.
 
 ## Plots
 - `outputs/eda/class_balance.png`

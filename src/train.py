@@ -26,7 +26,7 @@ from transformers import (
 )
 
 from src.clearml_logger import close_clearml, init_clearml
-from src.data import NLIDataset, load_train_df, stratified_split
+from src.data import NLIDataset, load_extra_train_df, load_test_df, load_train_df, stratified_split
 from src.profiling import ProfilerCallback
 from src.utils import get_device, load_config, set_seed, setup_logging
 
@@ -98,7 +98,13 @@ def main(config_path: str) -> None:
     logger.info("stage: load + split train.csv")
     df = load_train_df(data_dir, subset=cfg["data"]["subset"])
     train_df, val_df = stratified_split(df, val_size=cfg["data"]["val_size"], seed=cfg["seed"])
-    logger.info("train=%d val=%d", len(train_df), len(val_df))
+
+    test_df = load_test_df(data_dir)
+    exclude_pairs = set(zip(df["premise"], df["hypothesis"])) | set(zip(test_df["premise"], test_df["hypothesis"]))
+    extra_df = load_extra_train_df(cfg, exclude_pairs=exclude_pairs)
+    if len(extra_df) > 0:
+        train_df = pd.concat([train_df, extra_df], ignore_index=True)
+    logger.info("train=%d (extra=%d) val=%d", len(train_df), len(extra_df), len(val_df))
 
     logger.info("stage: load tokenizer %s (downloads on first run)", cfg["model_name"])
     tokenizer = AutoTokenizer.from_pretrained(cfg["model_name"])
@@ -129,7 +135,9 @@ def main(config_path: str) -> None:
         dataloader_num_workers      = t["num_workers"],
         logging_steps               = t["logging_steps"],
         eval_strategy               = t["eval_strategy"],
+        eval_steps                  = t.get("eval_steps"),
         save_strategy               = t["save_strategy"],
+        save_steps                  = t.get("save_steps"),
         group_by_length             = True,
         load_best_model_at_end      = True,
         logging_nan_inf_filter      = False,

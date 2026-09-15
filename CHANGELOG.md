@@ -36,3 +36,46 @@
   `src/eda.py`, `src/train.py`, `src/infer.py` no longer hardcode any path.
   `src/eda.py` now takes `--config` (default `configs/base.yaml`) instead of
   running argument-free. Portability across machines is a config edit only.
+- 2026-09-07 — first real profiling runs on the 5090 (`base.yaml`, cuda, bf16).
+  Baseline step time ~144 ms, GPU util 89%, "Other" 8.3% of step. Trace showed
+  a per-step device→host sync storm (`aten::is_nonzero` ~17 ms each,
+  `aten::_local_scalar_dense` ~790 calls/step) plus fixed-`max_length` padding
+  wasting ~40% of every gemm (EDA p95 = 74 tokens vs `max_length` 128).
+- 2026-09-07 — training input pipeline reworked for dynamic padding:
+  `src/data.py` `NLIDataset.__getitem__` no longer pads or returns tensors
+  (`padding="max_length"` + `return_tensors="pt"` removed) — emits variable-length
+  encodings, labels as plain ints. `src/train.py` adds
+  `data_collator=DataCollatorWithPadding(tokenizer)` (pads to batch max),
+  `group_by_length=True` (batch similar lengths, shrink batch max),
+  `dataloader_num_workers` (new `training.num_workers` config key, 8 on server),
+  and `logging_nan_inf_filter=False` (kills the per-step isnan/isinf loss sync).
+  `configs/{base,smoke}.yaml` gain `num_workers`.
+- 2026-09-07 — `src/infer.py` given the same `DataCollatorWithPadding` collate_fn
+  on its `DataLoader` — without it the ragged (now unpadded) `NLIDataset` batches
+  crash `default_collate` ("each element in list of batch should be of equal size").
+- 2026-09-08 — re-profiled after the pipeline rework: step time 144 → 83 ms
+  (−42%), GPU util 89 → 94%, SM efficiency 86 → 91%, "Other" 8.3 → 1.8%.
+  Pipeline is now GPU-compute-bound (kernel ~93% of step), DataLoader 0%.
+  `tokenizers` fork warning is cosmetic (fast tokenizer used in parent before
+  DataLoader fork) — silence with `TOKENIZERS_PARALLELISM=false` if wanted.
+- 2026-09-08 — batch size experiment: `batch_size` 64 → 160. Step time 83 → 135 ms
+  but throughput +55% (0.77 → 1.19 samples/ms); occupancy stayed low (~28%,
+  register-bound large-tile gemm, not a real stall). Kept as a candidate, not
+  locked in — larger effective batch needs LR re-tuning.
+- 2026-09-08 — first end-to-end training runs on the 5090, logged in
+  `experiments/runs.md`:
+  - run with 5 epochs / batch 160 / warmup_ratio 0.06: **collapsed to majority
+    class** (val_acc 0.34, eval_loss flat at ln(3)). Cause: warmup 6% of a short
+    schedule finished by ~step 4, near-full LR hit at step 50 with grad_norm 36 —
+    classic XLM-R-large fine-tune instability.
+  - run with 35 epochs / batch 160 (warmup 6% = ~145 steps, gentle start): trained
+    fine, best val_acc **0.824** @ epoch 15, but heavy overfit after ~epoch 8
+    (train loss → 0.0007, eval_loss 0.54 → 1.58, eval_acc plateau 0.80–0.82).
+    First working submission scored **0.80 on the test leaderboard**.
+- 2026-09-08 — takeaways for the next run (not yet applied): cut epochs to ~10,
+  add `EarlyStoppingCallback(patience=3)`, `warmup_ratio: 0.1`, try `lr: 1e-5`
+  for large-model stability, disable profiling. Candidate models to try beyond
+  `xlm-roberta-large`: `MoritzLaurer/mDeBERTa-v3-base-xnli-*` and
+  `joeddav/xlm-roberta-large-xnli` (pre-tuned on XNLI, same 15 languages).
+  Cross-validation (stratified K-fold on label×lang) worth adding once the
+  recipe is stable, not before.

@@ -5,30 +5,43 @@ model_name: xlm-roberta-large
 num_labels: 3
 max_length: 128  # combined premise+hypothesis p95 token length is 74 (see outputs/eda/eda_report.md)
 
-seed: 42
+# history_seeds: 42, 
+seed: 1234
 device: cuda
 
 data:
   subset: null  # null = full train.csv
   val_size: 0.1
 
+extra_data:
+  multinli26lang:  # 2.73 M pairs
+    enabled: true
+    data_dir: /home/boorble/askash/datasets/kaggle/cmdw_data/multilingual-NLI-26lang-2mil7/data
+    subsets: [mnli, wanli]  # skip anli/fever/ling — domain shift from comp test set
+  xnli_hf:         # 443K pairs
+    enabled: true
+    data_dir: /home/boorble/askash/datasets/kaggle/cmdw_data/xnli_hf
+    splits: [train, validation]
+
 training:
-  epochs: 10
+  epochs: 1
   batch_size: 160
   eval_batch_size: 128
   lr: 1.0e-5
   weight_decay: 0.01
   warmup_ratio: 0.1
   fp16: false
-  bf16: true  # 5090 (Blackwell) supports bf16 natively
+  bf16: true
   num_workers: 8
   logging_steps: 50
-  eval_strategy: epoch
-  save_strategy: epoch
+  eval_strategy: steps
+  eval_steps: 1000
+  save_strategy: steps
+  save_steps: 1000
 
 profiling:
-  enabled: false
-  profile_steps: 10
+  enabled: true
+  profile_steps: 50
 
 clearml:
   enabled: false
@@ -36,6 +49,6 @@ clearml:
   task_name: null  # null = falls back to run_id
 
 paths:
-  data_dir: /home/boorble/askash/datasets/kaggle/cmdw_data
+  data_dir: /home/boorble/askash/datasets/kaggle/cmdw_data/base_cmdw
   output_root: outputs
   experiments_dir: experiments

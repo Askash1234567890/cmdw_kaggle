@@ -12,6 +12,8 @@ data:
   subset: 100
   val_size: 0.2
 
+extra_data: {}
+
 training:
   epochs: 1
   batch_size: 4

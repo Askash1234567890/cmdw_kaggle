@@ -15,3 +15,7 @@ Never edit or delete a past row — compare by reading the table, not memory.
 | 2026-09-08 | large_20260908_014145 | xlm-roberta-large | 2e-05 | 5 | 0.3259 | es=0.16, de=0.17, zh=0.17 |  |
 | 2026-09-08 | large_20260908_020121 | xlm-roberta-large | 2e-05 | 35 | 0.3333 | sw=0.23, zh=0.25, ru=0.30 |  |
 | 2026-09-08 | large_20260908_022820 | xlm-roberta-large | 1e-05 | 10 | 0.3498 | ru=0.22, tr=0.23, sw=0.31 |  |
+| 2026-09-13 | large_20260913_163634 | xlm-roberta-large | 1e-05 | 3 | 0.3391 | hi=0.19, tr=0.23, bg=0.29 |  |
+| 2026-09-13 | large_20260913_205921 | xlm-roberta-large | 1e-05 | 1 | 0.3292 | bg=0.15, th=0.22, sw=0.23 |  |
+| 2026-09-14 | large_20260914_001600 | xlm-roberta-large | 1e-05 | 3 | 0.3622 | bg=0.24, tr=0.26, es=0.30 |  |
+| 2026-09-15 | large_20260915_190515 | xlm-roberta-large | 1e-05 | 1 | 0.3350 | hi=0.24, de=0.25, bg=0.26 |  |

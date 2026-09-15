@@ -17,17 +17,24 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from src.data import load_test_df, load_train_df
+from src.data import load_multinli26lang_df, load_test_df, load_train_df, load_xnli_df
 from src.utils import LABEL_NAMES, load_config, setup_logging
 
 logger = logging.getLogger(__name__)
 
 
-def _token_lengths(df: pd.DataFrame, model_name: str) -> pd.DataFrame:
+def _token_lengths(df: pd.DataFrame, model_name: str, sample: int | None = None) -> pd.DataFrame:
     """Token count per premise/hypothesis via the configured model's tokenizer.
     Falls back to whitespace-split count if the tokenizer can't be
     downloaded (offline dev machine) — flagged in the report either way.
+
+    `sample` caps rows tokenized (with a fixed seed) — the combined
+    base+extra corpus is 1M+ rows and per-row `tok.tokenize` in a python
+    loop over all of it is minutes of dead time for a distribution estimate
+    that a large random sample already answers.
     """
+    if sample is not None and len(df) > sample:
+        df = df.sample(n=sample, random_state=0)
     try:
         from transformers import AutoTokenizer
 
@@ -94,6 +101,36 @@ def _label_spot_check(df: pd.DataFrame, n_per_cell: int = 1) -> pd.DataFrame:
     return pd.concat(rows) if rows else df.iloc[0:0]
 
 
+def _pair_overlap(a: pd.DataFrame, b: pd.DataFrame) -> int:
+    """Count (premise, hypothesis) pairs shared between two frames — used to
+    flag train/extra <-> test leakage (source corpora like XNLI/MNLI can
+    overlap with what a Kaggle test split was built from)."""
+    a_pairs = set(zip(a["premise"], a["hypothesis"]))
+    b_pairs = set(zip(b["premise"], b["hypothesis"]))
+    return len(a_pairs & b_pairs)
+
+
+def _load_extra_df(cfg: dict[str, Any]) -> pd.DataFrame:
+    """Load augmentation corpora for EDA regardless of `extra_data.enabled`
+    — the report should cover what's available, not just what training
+    currently opts into."""
+    extra_cfg = cfg.get("extra_data", {})
+    frames = []
+    multinli26_cfg = extra_cfg.get("multinli26lang")
+    if multinli26_cfg:
+        df = load_multinli26lang_df(Path(multinli26_cfg["data_dir"]), multinli26_cfg["subsets"])
+        df["source"] = "multinli26lang"
+        frames.append(df)
+    xnli_cfg = extra_cfg.get("xnli_hf")
+    if xnli_cfg:
+        df = load_xnli_df(Path(xnli_cfg["data_dir"]), xnli_cfg["splits"])
+        df["source"] = "xnli_hf"
+        frames.append(df)
+    if not frames:
+        return pd.DataFrame(columns=["premise", "hypothesis", "lang_abv", "label", "source"])
+    return pd.concat(frames, ignore_index=True)
+
+
 def run_eda(cfg: dict[str, Any]) -> None:
     setup_logging()
     data_dir = Path(cfg["paths"]["data_dir"])
@@ -106,63 +143,78 @@ def run_eda(cfg: dict[str, Any]) -> None:
     test_df = load_test_df(data_dir)
     logger.info("train rows=%d test rows=%d", len(train_df), len(test_df))
 
-    train_df_len = _token_lengths(train_df, cfg["model_name"])
+    extra_df = _load_extra_df(cfg)
+    combined_df = pd.concat([train_df.assign(source="base_cmdw"), extra_df], ignore_index=True)
+    logger.info("extra rows=%d combined rows=%d", len(extra_df), len(combined_df))
 
-    _plot_class_balance(train_df, out_dir / "class_balance.png")
-    _plot_length_dist(train_df_len, out_dir / "length_dist.png")
-    _plot_lang_dist(train_df, test_df, out_dir / "lang_dist_train_vs_test.png")
+    combined_df_len = _token_lengths(combined_df, cfg["model_name"], sample=50_000)
+
+    _plot_class_balance(combined_df, out_dir / "class_balance.png")
+    _plot_length_dist(combined_df_len, out_dir / "length_dist.png")
+    _plot_lang_dist(combined_df, test_df, out_dir / "lang_dist_train_vs_test.png")
 
     dups = _find_duplicates(train_df)
-    spot_check = _label_spot_check(train_df)
+    spot_check = _label_spot_check(combined_df)
     spot_check.to_csv(out_dir / "label_spot_check.csv", index=False)
 
-    train_langs = set(train_df["lang_abv"])
+    train_langs = set(combined_df["lang_abv"])
     test_langs = set(test_df["lang_abv"])
     lang_mismatch = train_langs.symmetric_difference(test_langs)
 
-    class_counts = train_df["label"].map(LABEL_NAMES).value_counts()
-    lang_counts = train_df["lang_abv"].value_counts()
+    class_counts = combined_df["label"].map(LABEL_NAMES).value_counts()
+    lang_counts = combined_df["lang_abv"].value_counts()
+    source_counts = combined_df["source"].value_counts()
+
+    extra_vs_test_overlap = _pair_overlap(extra_df, test_df) if len(extra_df) else 0
+    extra_vs_train_overlap = _pair_overlap(extra_df, train_df) if len(extra_df) else 0
 
     report = f"""# EDA report — Contradictory, My Dear Watson
 
-Data: `{data_dir}`
+Data: `{data_dir}` (base) + extra_data config sources below.
 
 ## Shape
-- train rows: {len(train_df)}
+- base train rows: {len(train_df)}
 - test rows: {len(test_df)}
+- extra rows (augmentation corpora): {len(extra_df)}
+- combined train-pool rows: {len(combined_df)}
 
-## Class balance (overall)
+## Source breakdown (combined)
+{source_counts.to_markdown()}
+
+## Class balance (combined)
 {class_counts.to_markdown()}
 
-Roughly balanced (largest/smallest ratio {class_counts.max() / class_counts.min():.2f}) —
-no resampling/class-weighting needed as a first pass.
+Largest/smallest ratio {class_counts.max() / class_counts.min():.2f} —
+{"roughly balanced, no resampling/class-weighting needed" if class_counts.max() / class_counts.min() < 1.3 else "some skew — consider class weighting if val accuracy is uneven across labels"}.
 
-## Language distribution (train)
+## Language distribution (combined train-pool)
 {lang_counts.to_markdown()}
-
-English dominates ({lang_counts.iloc[0]} rows, {lang_counts.iloc[0] / len(train_df) * 100:.1f}% of train),
-the other 14 languages sit around 340-410 rows each. Low-resource languages
-(bg, tr, de at the low end) are the ones most likely to show weak per-language
-accuracy — watch these first in `experiments/runs.md`.
 
 ## Train vs test language mismatch
 {"No language present in one split but not the other." if not lang_mismatch else f"Mismatch: {sorted(lang_mismatch)}"}
 
-## Token length (method: {train_df_len.attrs['length_method']})
-- premise: mean={train_df_len['premise_len'].mean():.1f}, p95={train_df_len['premise_len'].quantile(0.95):.0f}, max={train_df_len['premise_len'].max()}
-- hypothesis: mean={train_df_len['hyp_len'].mean():.1f}, p95={train_df_len['hyp_len'].quantile(0.95):.0f}, max={train_df_len['hyp_len'].max()}
-- combined p95 (premise+hypothesis, informs `max_length` in config): {(train_df_len['premise_len'] + train_df_len['hyp_len']).quantile(0.95):.0f}
+## Token length (method: {combined_df_len.attrs['length_method']}, sampled up to 50,000 rows from combined pool)
+- premise: mean={combined_df_len['premise_len'].mean():.1f}, p95={combined_df_len['premise_len'].quantile(0.95):.0f}, max={combined_df_len['premise_len'].max()}
+- hypothesis: mean={combined_df_len['hyp_len'].mean():.1f}, p95={combined_df_len['hyp_len'].quantile(0.95):.0f}, max={combined_df_len['hyp_len'].max()}
+- combined p95 (premise+hypothesis, informs `max_length` in config): {(combined_df_len['premise_len'] + combined_df_len['hyp_len']).quantile(0.95):.0f}
 
-## Duplicates
+## Duplicates (base train only)
 {len(dups)} row involved in an exact (premise, hypothesis) duplicate
 ({dups['label'].nunique() if len(dups) else 0} distinct label among them — a
 duplicate pair with two different label would be a labeling conflict worth
 checking manually).
 
+## Extra-data leakage check
+- extra rows exactly matching a (premise, hypothesis) pair in **test.csv**: {extra_vs_test_overlap}
+- extra rows exactly matching a (premise, hypothesis) pair in **base train.csv**: {extra_vs_train_overlap}
+
+{"No overlap with test — safe to use extra_data as-is." if extra_vs_test_overlap == 0 else "WARNING: extra_data overlaps test.csv pairs — drop these rows before training or val/test accuracy will be inflated by leakage."}
+{"" if extra_vs_train_overlap == 0 else f"Note: {extra_vs_train_overlap} extra rows duplicate base train rows — harmless but adds no signal, consider deduping."}
+
 ## Label spot-check
-One sample row per (language, label) written to `{out_dir / "label_spot_check.csv"}`
-for manual read-through — no automated sanity check replaces eyeballing a few
-real example per language.
+One sample row per (language, label) from the combined pool, written to
+`{out_dir / "label_spot_check.csv"}` for manual read-through — no automated
+sanity check replaces eyeballing a few real example per language.
 
 ## Plots
 - `{out_dir / "class_balance.png"}`
