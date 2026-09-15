@@ -26,6 +26,7 @@ from transformers import (
     DataCollatorWithPadding
 )
 
+from src.async_logging import AsyncTensorBoardCallback
 from src.clearml_logger import close_clearml, init_clearml
 from src.data import NLIDataset, load_extra_train_df, load_test_df, load_train_df, stratified_split
 from src.profiling import ProfilerCallback
@@ -153,11 +154,11 @@ def main(config_path: str) -> None:
         metric_for_best_model       = "accuracy",
         save_total_limit            = 2,
         seed                        = cfg["seed"],
-        report_to                   = ["tensorboard"],
+        report_to                   = [],
         no_cuda                     = (cfg["device"] == "cpu"),
     )
 
-    callbacks = []
+    callbacks = [AsyncTensorBoardCallback(checkpoint_dir / "hf_run")]
     if cfg["profiling"]["enabled"]:
         profiling_dir = output_root / "profiling" / run_id
         callbacks.append(ProfilerCallback(profiling_dir, cfg["profiling"]["profile_steps"]))
