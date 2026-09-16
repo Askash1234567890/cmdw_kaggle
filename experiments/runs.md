@@ -19,3 +19,4 @@ Never edit or delete a past row — compare by reading the table, not memory.
 | 2026-09-13 | large_20260913_205921 | xlm-roberta-large | 1e-05 | 1 | 0.3292 | bg=0.15, th=0.22, sw=0.23 |  |
 | 2026-09-14 | large_20260914_001600 | xlm-roberta-large | 1e-05 | 3 | 0.3622 | bg=0.24, tr=0.26, es=0.30 |  |
 | 2026-09-15 | large_20260915_190515 | xlm-roberta-large | 1e-05 | 1 | 0.3350 | hi=0.24, de=0.25, bg=0.26 |  |
+| 2026-09-16 | large_20260916_002327 | google/rembert | 1e-05 | 1 | 0.3201 | th=0.20, ru=0.26, ar=0.26 |  |

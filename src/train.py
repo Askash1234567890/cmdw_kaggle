@@ -118,7 +118,6 @@ def main(config_path: str) -> None:
     del extra_df
     del exclude_pairs
     del train_df
-    del val_df
     gc.collect()
 
     logger.info(

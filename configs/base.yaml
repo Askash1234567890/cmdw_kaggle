@@ -1,17 +1,18 @@
 # Real training run — RTX 5090 GPU server.
 run_name: large
 
-model_name: xlm-roberta-large
+# model_name: xlm-roberta-large
+model_name: google/rembert
 num_labels: 3
 max_length: 128  # combined premise+hypothesis p95 token length is 74 (see outputs/eda/eda_report.md)
 
-# history_seeds: 42, 
-seed: 1234
+# history_seeds: 42, 1234, 98765
+seed: 42
 device: cuda
 
 data:
   subset: null  # null = full train.csv
-  val_size: 0.1
+  val_size: 0.25
 
 extra_data:
   multinli26lang:  # 543K pairs
@@ -19,14 +20,14 @@ extra_data:
     data_dir: /home/boorble/askash/datasets/kaggle/cmdw_data/multilingual-NLI-26lang-2mil7/data
     subsets: [mnli, wanli]  # skip anli/fever/ling — domain shift from comp test set
   xnli_hf:         # 5.63 M pairs
-    enabled: false
+    enabled: true
     data_dir: /home/boorble/askash/datasets/kaggle/cmdw_data/xnli_hf
     splits: [train, validation]
 
 training:
   epochs: 1
-  batch_size: 160
-  eval_batch_size: 128
+  batch_size: 90
+  eval_batch_size: 64
   lr: 1.0e-5
   weight_decay: 0.01
   warmup_ratio: 0.1
@@ -40,7 +41,7 @@ training:
   save_steps: 1000
 
 profiling:
-  enabled: true
+  enabled: false
   profile_steps: 250
 
 clearml:

@@ -79,3 +79,9 @@
   `joeddav/xlm-roberta-large-xnli` (pre-tuned on XNLI, same 15 languages).
   Cross-validation (stratified K-fold on label×lang) worth adding once the
   recipe is stable, not before.
+- 2026-09-16 — `ensembles/` added: `blend_answers.py` majority-votes across
+  multiple submission csvs (ties broken by the best single model's vote).
+  `src/infer_probs.py` added alongside `infer.py` — same checkpoint/config
+  path but writes per-class softmax probabilities (`id,prob_0,prob_1,prob_2`,
+  6 decimals) instead of argmax labels, for ensembling. `ensembles/blend_probs.py`
+  sums probabilities across multiple probs csvs and argmaxes per row.

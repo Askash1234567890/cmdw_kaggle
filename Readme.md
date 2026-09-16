@@ -63,6 +63,38 @@ python -m src.infer --checkpoint outputs/checkpoints/<run_id>/best \
     --out outputs/submissions/sub_$(date +%Y%m%d_%H%M).csv
 ```
 
+### Probabilities export (for ensembling)
+
+Same as `infer.py` but writes per-class softmax probabilities instead of the
+argmax label — `id,prob_0,prob_1,prob_2`, rounded to 6 decimals:
+
+```bash
+python -m src.infer_probs --checkpoint outputs/checkpoints/<run_id>/best \
+    --config configs/base.yaml \
+    --out outputs/submissions/probs.csv
+```
+
+Output filename gets tagged with `<run_id>` same as `infer.py`.
+
+### Ensembling
+
+`ensembles/blend_answers.py` — majority vote across multiple submission csvs
+(hardcode paths at top of file, ties broken by best single model's vote):
+
+```bash
+python ensembles/blend_answers.py
+```
+
+`ensembles/blend_probs.py` — sums per-class probabilities across multiple
+`infer_probs.py` outputs, argmax per row for the final label (hardcode paths
+at top of file):
+
+```bash
+python ensembles/blend_probs.py
+```
+
+Both write to `outputs/submissions/sub_blend_*.csv` (gitignored).
+
 ### ClearML (optional)
 
 ```bash
